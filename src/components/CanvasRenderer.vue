@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch, computed } from "vue";
 
 // Пропсы и эвенты
 const props = defineProps({
@@ -38,6 +38,24 @@ const draw = () => {
   if (!ctx.value) return;
   const canvas = canvasRef.value;
   ctx.value.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Сетка
+  ctx.value.save();
+  ctx.value.strokeStyle = '#e5e7eb';
+  ctx.value.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 20) {
+    ctx.value.beginPath();
+    ctx.value.moveTo(x, 0);
+    ctx.value.lineTo(x, canvas.height);
+    ctx.value.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 20) {
+    ctx.value.beginPath();
+    ctx.value.moveTo(0, y);
+    ctx.value.lineTo(canvas.width, y);
+    ctx.value.stroke();
+  }
+  ctx.value.restore();
 
   // Оригинальный полигон
   if (props.points.length > 0) {
@@ -94,12 +112,19 @@ const draw = () => {
   props.points.forEach((pt, index) => {
     ctx.value.beginPath();
     ctx.value.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
-    ctx.value.fillStyle = "#3b82f6";
-    ctx.value.fill();
-    ctx.value.strokeStyle = "white";
-    ctx.value.lineWidth = 2;
-    ctx.value.stroke();
-
+    if (badVertexIndices.value.includes(index)) {
+      ctx.value.strokeStyle = '#dc2626';
+      ctx.value.lineWidth = 2;
+      ctx.value.fillStyle = '#fff';
+      ctx.value.fill();
+      ctx.value.stroke();
+    } else {
+      ctx.value.fillStyle = "#3b82f6";
+      ctx.value.fill();
+      ctx.value.strokeStyle = "white";
+      ctx.value.lineWidth = 2;
+      ctx.value.stroke();
+    }
     // Номера вершин
     ctx.value.font = "12px Arial";
     ctx.value.fillStyle = "black";
@@ -170,13 +195,33 @@ const onMouseDown = (e) => {
   }
 };
 
+// Подсказка-курсор при наведении на вершину
+const hoveredVertexIndex = ref(null);
+
 const onMouseMove = (e) => {
   const pos = getMousePos(e);
   const canvas = canvasRef.value;
-
-  // Ограничиваем координаты в пределах холста
   pos.x = Math.max(0, Math.min(pos.x, canvas.width));
   pos.y = Math.max(0, Math.min(pos.y, canvas.height));
+
+  // Курсор
+  let found = false;
+  for (let i = 0; i < props.points.length; i++) {
+    const p = props.points[i];
+    if (Math.hypot(p.x - pos.x, p.y - pos.y) < 10) {
+      hoveredVertexIndex.value = i;
+      found = true;
+      break;
+    }
+  }
+  if (!found) hoveredVertexIndex.value = null;
+  if (canvas) {
+    if (hoveredVertexIndex.value !== null && props.isPolygonComplete) {
+      canvas.style.cursor = draggingPointIndex.value !== null ? 'grabbing' : 'grab';
+    } else {
+      canvas.style.cursor = isDrawing.value && !props.isPolygonComplete ? 'crosshair' : 'default';
+    }
+  }
 
   if (isDrawing.value && !props.isPolygonComplete) {
     currentPoint.value = pos;
@@ -197,6 +242,34 @@ const onMouseUp = (e) => {
   draggingPointIndex.value = null;
   draw();
 };
+
+const badVertexIndices = computed(() => {
+  // Критерии: малый угол (< 20°), совпадающие точки, перегибы
+  if (!props.isPolygonComplete || props.points.length < 3) return [];
+  const indices = [];
+  const coords = props.points.map((p) => [p.x, p.y]);
+  for (let i = 0; i < coords.length; i++) {
+    const prev = coords[(i - 1 + coords.length) % coords.length];
+    const curr = coords[i];
+    const next = coords[(i + 1) % coords.length];
+    // Совпадающие точки
+    if (Math.hypot(curr[0] - prev[0], curr[1] - prev[1]) < 1e-2 || Math.hypot(curr[0] - next[0], curr[1] - next[1]) < 1e-2) {
+      indices.push(i);
+      continue;
+    }
+    // Малый угол
+    const v1 = [prev[0] - curr[0], prev[1] - curr[1]];
+    const v2 = [next[0] - curr[0], next[1] - curr[1]];
+    const dot = v1[0]*v2[0] + v1[1]*v2[1];
+    const len1 = Math.hypot(...v1);
+    const len2 = Math.hypot(...v2);
+    if (len1 > 1e-2 && len2 > 1e-2) {
+      const angle = Math.acos(dot / (len1 * len2)) * 180 / Math.PI;
+      if (angle < 20) indices.push(i);
+    }
+  }
+  return indices;
+});
 </script>
 
 <template>

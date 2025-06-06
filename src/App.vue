@@ -134,33 +134,37 @@ const animateRounding = () => {
 </script>
 
 <template>
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Скругление углов полигона</h1>
-    
+  <div class="container">
+    <h1>Скругление углов полигона</h1>
     <!-- Инструкции -->
-    <div class="mb-4 p-4 bg-blue-50 rounded-lg" v-if="!isPolygonComplete">
-      <h2 class="font-semibold mb-2">Инструкция по созданию полигона:</h2>
-      <ol class="list-decimal list-inside space-y-1">
-        <li>Нажмите ЛКМ для создания первой вершины</li>
-        <li>Удерживайте ЛКМ и перетащите для создания следующей вершины</li>
-        <li>Продолжайте добавлять вершины, нажимая и перетаскивая ЛКМ</li>
-        <li>Нажмите ПКМ для замыкания полигона (минимум 3 вершины)</li>
-        <li>После замыкания можно перетаскивать вершины для изменения формы</li>
-      </ol>
+    <div class="card mb-4" v-if="!isPolygonComplete">
+      <h2 class="font-semibold mb-2">Инструкция по управлению:</h2>
+      <ul style="padding-left: 1.2em;">
+        <li><b>ЛКМ</b> — добавление вершины полигона</li>
+        <li><b>ПКМ</b> — завершение построения (замыкание) полигона</li>
+        <li><b>Захват и перемещение вершины</b>:<br>
+          <ul style="margin-top: 2px; margin-bottom: 2px;">
+            <li>После замыкания полигона наведите курсор на вершину (курсор станет <b>рукой</b>)</li>
+            <li>Зажмите ЛКМ на вершине и перемещайте мышь — вершина будет двигаться</li>
+            <li>Во время перемещения курсор — <b>захваченная рука</b></li>
+          </ul>
+        </li>
+        <li>Вершины с ошибками (малый угол, совпадение, перегиб) — <span style="color: #dc2626;">пустой красный круг</span></li>
+        <li>После минимизации неправильные вершины будут удалены или исправлены</li>
+        <li>Сетка на холсте помогает точному построению</li>
+      </ul>
     </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="space-y-4">
-        <div v-if="isPolygonComplete" class="p-4 bg-green-50 rounded-lg">
-          <p class="text-green-700">Полигон замкнут! Теперь вы можете:</p>
-          <ul class="list-disc list-inside mt-2">
+    <div class="flex" style="gap: 24px; flex-wrap: wrap;">
+      <div style="flex: 1 1 320px; min-width: 320px; max-width: 400px;">
+        <div v-if="isPolygonComplete" class="card mb-4" style="background: #e6fbe6;">
+          <p style="color: #15803d;">Полигон замкнут! Теперь вы можете:</p>
+          <ul style="padding-left: 1.2em; margin-top: 8px;">
             <li>Перетаскивать вершины для изменения формы</li>
             <li>Настраивать радиус скругления ({{ radius }})</li>
             <li>Выбирать тип скругления ({{ roundingType }})</li>
             <li>Запускать анимацию</li>
           </ul>
         </div>
-        
         <PointControls
           :points="points"
           @remove-point="removePoint"
@@ -175,7 +179,7 @@ const animateRounding = () => {
           @animate="animateRounding"
         />
       </div>
-      <div class="lg:col-span-2">
+      <div style="flex: 2 1 600px; min-width: 400px;">
         <CanvasRenderer
           :points="points"
           :roundedPath="roundedPolygon"
@@ -185,7 +189,8 @@ const animateRounding = () => {
           @add-point="addPoint"
           @update-point="updatePoint"
           @complete-polygon="completePolygon"
-          class="border border-gray-300 rounded-lg shadow-lg"
+          class="card"
+          style="border: 1px solid #d1d5db; min-height: 500px; background: #fff;"
         />
       </div>
     </div>

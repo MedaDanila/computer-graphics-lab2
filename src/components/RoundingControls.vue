@@ -33,58 +33,65 @@ const currentType = computed({
   get: () => props.roundingType,
   set: (value) => emit('update-type', value)
 });
+
+function onRadiusInput(e) {
+  let val = Number(e.target.value);
+  val = Number(val.toFixed(2));
+  emit('update-radius', val);
+}
 </script>
 
 <template>
-  <div class="bg-gray-50 p-4 rounded-lg">
+  <div class="card">
     <h2 class="text-lg font-semibold mb-2">Параметры скругления</h2>
-
-    <div class="space-y-4">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
       <!-- Слайдер радиуса -->
       <div>
-        <label class="block text-sm font-medium mb-1">
-          Радиус скругления: <span class="font-medium">{{ currentRadius }}</span>
+        <label style="margin-bottom: 4px; display: block; font-weight: 500;">
+          Радиус скругления: <span style="font-weight: 600;">{{ currentRadius }}</span>
         </label>
-        <div class="flex items-center space-x-2">
+        <div style="display: flex; align-items: center; gap: 8px;">
           <input
             type="range"
             min="5"
             max="150"
-            step="1"
+            step="0.01"
             v-model.number="currentRadius"
-            class="flex-1"
+            style="flex: 1;"
           />
           <input
             type="number"
             min="5"
             max="150"
+            step="0.01"
             v-model.number="currentRadius"
-            class="w-16 p-1 border rounded"
+            @input="onRadiusInput"
+            style="width: 60px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
           />
         </div>
-        <p class="text-xs text-gray-500 mt-1">
+        <p style="font-size: 0.9em; color: #888; margin-top: 4px;">
           Фактический радиус скругления будет автоматически адаптирован к размеру угла
         </p>
       </div>
-
       <!-- Выбор типа скругления -->
       <div>
-        <label class="block text-sm font-medium mb-1">Тип скругления:</label>
+        <label style="margin-bottom: 4px; display: block; font-weight: 500;">Тип скругления:</label>
         <select
           v-model="currentType"
-          class="w-full p-2 border rounded"
+          style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
         >
           <option value="all">Все углы</option>
           <option value="convex">Только выпуклые</option>
           <option value="concave">Только вогнутые</option>
         </select>
       </div>
-
       <!-- Кнопка анимации -->
       <button
         @click="emit('animate')"
         :disabled="props.isAnimating"
-        class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-300 transition-colors"
+        class="button"
+        style="width: 100%; background: #22c55e; margin-top: 8px;"
+        :style="props.isAnimating ? 'background: #d1d5db; color: #888; cursor: not-allowed;' : ''"
       >
         {{ props.isAnimating ? "Анимация..." : "Анимировать" }}
       </button>

@@ -27,65 +27,81 @@ const angleTypes = computed(() => {
   const coords = props.points.map((p) => [p.x, p.y]);
   return props.points.map((_, i) => getAngleType(coords, i));
 });
+
+function onCoordInput(point, key, e) {
+  // Ограничиваем до 2 знаков после запятой прямо в поле
+  let val = e.target.value;
+  if (val.includes('.')) {
+    const [int, dec] = val.split('.');
+    if (dec.length > 2) {
+      val = int + '.' + dec.slice(0, 2);
+      e.target.value = val;
+    }
+  }
+  point[key] = Number(val);
+  emit('update-point', point.id, { x: point.x, y: point.y });
+}
+
+function onCoordBlur(point, key) {
+  // Округляем до 2 знаков после потери фокуса
+  point[key] = Number(Number(point[key]).toFixed(2));
+  emit('update-point', point.id, { x: point.x, y: point.y });
+}
 </script>
 
 <template>
-  <div class="bg-gray-50 p-4 rounded-lg">
+  <div class="card">
     <h2 class="text-lg font-semibold mb-2">Управление точками</h2>
-
     <div class="flex space-x-2 mb-4">
       <button
         @click="emit('generate-random-polygon')"
-        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        class="button"
       >
         Сгенерировать случайный полигон
       </button>
     </div>
-
-    <div v-if="props.points.length" class="space-y-2">
+    <div v-if="props.points.length" style="display: flex; flex-direction: column; gap: 8px;">
       <div
         v-for="(point, index) in props.points"
         :key="point.id"
-        class="flex items-center space-x-2 p-2 bg-white rounded border"
+        class="flex items-center rounded border"
+        style="background: #fff; padding: 8px; border: 1px solid #d1d5db;"
       >
-        <!-- Координаты с полями для редактирования -->
         <input
           type="number"
+          step="0.01"
           v-model.number="point.x"
-          @input="emit('update-point', point.id, { x: point.x, y: point.y })"
-          class="w-16 p-1 border rounded"
+          @input="onCoordInput(point, 'x', $event)"
+          @blur="onCoordBlur(point, 'x')"
+          class="w-16"
+          style="margin-right: 4px;"
         />
         <span>,</span>
         <input
           type="number"
+          step="0.01"
           v-model.number="point.y"
-          @input="emit('update-point', point.id, { x: point.x, y: point.y })"
-          class="w-16 p-1 border rounded"
+          @input="onCoordInput(point, 'y', $event)"
+          @blur="onCoordBlur(point, 'y')"
+          class="w-16"
+          style="margin-left: 4px;"
         />
-
-        <!-- Тип угла -->
         <span
           v-if="angleTypes[index]"
-          :class="{
-            'text-green-600': angleTypes[index] === 'convex',
-            'text-purple-600': angleTypes[index] === 'concave',
-          }"
+          :style="angleTypes[index] === 'convex' ? 'color: #16a34a;' : 'color: #7c3aed;'"
           class="text-xs font-medium ml-2"
         >
           {{ angleTypes[index] === "convex" ? "выпуклый" : "вогнутый" }}
         </span>
-
-        <!-- Удалить точку -->
         <button
           @click="emit('remove-point', point.id)"
-          class="ml-auto text-red-500 hover:text-red-700 p-1"
+          style="margin-left: auto; color: #dc2626; background: none; border: none; font-size: 1.2em; cursor: pointer;"
           title="Удалить точку"
         >
           ×
         </button>
       </div>
     </div>
-
-    <p v-else class="text-gray-500">Кликните на холсте, чтобы добавить точки</p>
+    <p v-else style="color: #888;">Кликните на холсте, чтобы добавить точки</p>
   </div>
 </template>

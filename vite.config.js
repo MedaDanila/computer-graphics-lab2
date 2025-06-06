@@ -1,14 +1,21 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-import tailwindcss from "@tailwindcss/vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.ELECTRON ? './' : '/',
-  plugins: [vue(), tailwindcss(), viteSingleFile()],
+  plugins: [vue(), viteSingleFile()],
   build: {
-    target: "esnext",
+    target: "es2019",
     assetsInlineLimit: 100000000, // Инлайнит все ресурсы
+    outDir: "dist",
+    rollupOptions: {
+      output: {
+        format: "es",
+        generatedCode: {
+          optionalChaining: false,
+        },
+      },
+    },
   },
 });
