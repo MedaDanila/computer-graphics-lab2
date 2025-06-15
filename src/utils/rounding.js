@@ -7,8 +7,10 @@ export function getAngleType(points, i) {
 
   const det = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 
-  // Поскольку isCCW = true, угол выпуклый, если det > 0
-  return det > 0 ? "convex" : "concave";
+  // Если полигон обходится против часовой стрелки (CCW, что обеспечивает ensureCCW):
+  // det > 0  => левый поворот, угол вогнутый
+  // det < 0  => правый поворот, угол выпуклый
+  return det > 0 ? "concave" : "convex";
 }
 
 // Биссектриса угла (см. формулу 8)
@@ -78,9 +80,11 @@ export function roundPolygonCorners(
     }
 
     const angleType = getAngleType(points, i);
+    const currentIsConvex = angleType === "convex";
+
     if (
-      (mode === "convex" && angleType !== "convex") ||
-      (mode === "concave" && angleType !== "concave")
+      (mode === "convex" && !currentIsConvex) ||
+      (mode === "concave" && currentIsConvex)
     ) {
       corners.push({ type: "sharp", at: p1 });
       continue;
@@ -108,32 +112,39 @@ export function roundPolygonCorners(
     const dot = v1Norm[0] * v2Norm[0] + v1Norm[1] * v2Norm[1];
     const angle = Math.acos(Math.min(Math.max(dot, -1), 1));
 
-    const cross = v1Norm[0] * v2Norm[1] - v1Norm[1] * v2Norm[0];
-    const isConvex = cross > 0;
-
-    const maxR = Math.min(len1, len2) * Math.tan(angle / 2);
+    let maxR;
+    maxR = Math.min(len1, len2) * Math.tan(angle / 2); // Одинаково для выпуклых и вогнутых углов
     const r = Math.min(Ruser, maxR);
 
     if (r < Ruser - 1e-3) limitedAngles.push(i);
-    if (r < 1e-3) {
+    if (r < 1e-3 || maxR < 1e-3) {
       corners.push({ type: "sharp", at: p1 });
       continue;
     }
 
     const h = r / Math.sin(angle / 2);
-    const normalDir = isConvex ? -1 : 1;
+    const normalDir = 1;
     const center = [
       p1[0] + bisector[0] * h * normalDir,
       p1[1] + bisector[1] * h * normalDir,
     ];
 
-    const pStart = [p1[0] + v1Norm[0] * r, p1[1] + v1Norm[1] * r];
-    const pEnd = [p1[0] + v2Norm[0] * r, p1[1] + v2Norm[1] * r];
+    const d = r / Math.tan(angle / 2); // Расстояние вдоль ребра до точки сопряжения
+    const pStart = [p1[0] + v1Norm[0] * d, p1[1] + v1Norm[1] * d];
+    const pEnd = [p1[0] + v2Norm[0] * d, p1[1] + v2Norm[1] * d];
 
     const startAngle = Math.atan2(pStart[1] - center[1], pStart[0] - center[0]);
-    const endAngle = Math.atan2(pEnd[1] - center[1], pEnd[0] - center[0]);
+    let endAngle = Math.atan2(pEnd[1] - center[1], pEnd[0] - center[0]);
+    const anticlockwise = currentIsConvex ? true : false; // выпуклый — против часовой, вогнутый — по часовой
 
-    const anticlockwise = isConvex ? false : true;
+    // Нормализация endAngle для ctx.arc
+    if (anticlockwise) {
+      while (endAngle <= startAngle) endAngle += 2 * Math.PI;
+      while (endAngle > startAngle + 2 * Math.PI) endAngle -= 2 * Math.PI;
+    } else {
+      while (endAngle >= startAngle) endAngle -= 2 * Math.PI;
+      while (endAngle < startAngle - 2 * Math.PI) endAngle += 2 * Math.PI;
+    }
 
     corners.push({
       type: "arc",

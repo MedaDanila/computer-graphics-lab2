@@ -138,17 +138,12 @@ const draw = () => {
       } else if (seg.type === "L") {
         ctx.value.lineTo(seg.to[0], seg.to[1]);
       } else if (seg.type === "A") {
-        const [start, end] = normalizeArcAngles(
-          seg.startAngle,
-          seg.endAngle,
-          seg.anticlockwise
-        );
         ctx.value.arc(
           seg.center[0],
           seg.center[1],
           seg.radius,
-          start,
-          end,
+          seg.startAngle,
+          seg.endAngle,
           seg.anticlockwise
         );
       } else if (seg.type === "Z") {
@@ -160,6 +155,33 @@ const draw = () => {
     ctx.value.stroke();
     ctx.value.fillStyle = "rgba(239,68,68,0.1)";
     ctx.value.fill();
+
+    for (let i = 0; i < props.roundedPath.length; i++) {
+      const seg = props.roundedPath[i];
+      if (seg.type === "A") {
+        ctx.value.beginPath();
+        ctx.value.arc(seg.center[0], seg.center[1], 4, 0, Math.PI * 2);
+        ctx.value.fillStyle = "#22c55e";
+        ctx.value.fill();
+        ctx.value.beginPath();
+        ctx.value.arc(seg.pStart ? seg.pStart[0] : seg.to[0], seg.pStart ? seg.pStart[1] : seg.to[1], 4, 0, Math.PI * 2);
+        ctx.value.fillStyle = "#f59e42";
+        ctx.value.fill();
+        ctx.value.beginPath();
+        ctx.value.moveTo(seg.center[0], seg.center[1]);
+        ctx.value.lineTo(seg.pStart ? seg.pStart[0] : seg.to[0], seg.pStart ? seg.pStart[1] : seg.to[1]);
+        ctx.value.strokeStyle = "#22c55e";
+        ctx.value.lineWidth = 1.5;
+        ctx.value.stroke();
+        // Рисуем биссектрису для отладки
+        ctx.value.beginPath();
+        ctx.value.moveTo(seg.pStart[0], seg.pStart[1]);
+        ctx.value.lineTo(seg.center[0], seg.center[1]);
+        ctx.value.strokeStyle = "#00cc44";
+        ctx.value.lineWidth = 2;
+        ctx.value.stroke();
+      }
+    }
   }
 
   props.points.forEach((point, index) => {
