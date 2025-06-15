@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed } from "vue";
-import { roundPolygonCorners } from "./utils/rounding";
+import { roundPolygonCorners, getAngleType } from "./utils/rounding";
 import CanvasRenderer from "./components/CanvasRenderer.vue";
 import VertexList from "./components/VertexList.vue";
 import Instructions from "./components/Instructions.vue";
+import Controls from "./components/Controls.vue";
 
 const points = ref([]);
 const isPolygonComplete = ref(false);
@@ -57,7 +58,9 @@ const addPoint = (pos) => {
 const completePolygon = () => {
   if (points.value.length >= 3) {
     isPolygonComplete.value = true;
-    animateRounding();
+    setTimeout(() => {
+      animateRounding();
+    }, 50);
   }
 };
 
@@ -69,25 +72,49 @@ const removePoint = (id) => {
 };
 
 const roundedPolygon = computed(() => {
-  if (!isPolygonComplete.value || points.value.length < 3)
+  if (!isPolygonComplete.value || points.value.length < 3) {
     return { segments: [], limitedAngles: [] };
+  }
+  
   try {
-    return roundPolygonCorners(
+    const result = roundPolygonCorners(
       points.value.map((p) => [p.x, p.y]),
       Math.max(5, Math.min(100, radius.value)),
       roundingType.value,
       isAnimating.value ? animationProgress.value : 1
     );
+    return result || { segments: [], limitedAngles: [] };
   } catch (error) {
     console.error("Error in roundPolygonCorners:", error);
     return { segments: [], limitedAngles: [] };
   }
 });
 
+const hasConvexAngles = computed(() => {
+  if (!isPolygonComplete.value || points.value.length < 3) return false;
+  const pointsArray = points.value.map(p => [p.x, p.y]);
+  for (let i = 0; i < pointsArray.length; i++) {
+    if (getAngleType(pointsArray, i) === "convex") return true;
+  }
+  return false;
+});
+
+const hasConcaveAngles = computed(() => {
+  if (!isPolygonComplete.value || points.value.length < 3) return false;
+  const pointsArray = points.value.map(p => [p.x, p.y]);
+  for (let i = 0; i < pointsArray.length; i++) {
+    if (getAngleType(pointsArray, i) === "concave") return true;
+  }
+  return false;
+});
+
 const updatePoint = (id, newPos) => {
   const idx = points.value.findIndex((p) => p.id === id);
   if (idx !== -1) {
     points.value[idx] = { ...points.value[idx], ...newPos };
+    if (isPolygonComplete.value) {
+      animateRounding();
+    }
   }
 };
 
@@ -109,12 +136,32 @@ const animateRounding = () => {
   };
   requestAnimationFrame(animate);
 };
+
+const clearCanvas = () => {
+  points.value = [];
+  isPolygonComplete.value = false;
+  isAnimating.value = false;
+  animationProgress.value = 0;
+};
+
+const updateRoundingType = (type) => {
+  roundingType.value = type;
+  if (isPolygonComplete.value) {
+    animateRounding();
+  }
+};
 </script>
 
 <template>
   <div class="main">
     <div class="controls">
       <Instructions />
+      <Controls 
+        :has-convex-angles="hasConvexAngles"
+        :has-concave-angles="hasConcaveAngles"
+        @clear="clearCanvas"
+        @update:rounding="updateRoundingType"
+      />
       <VertexList
         :points="points"
         :scale="scale"
@@ -130,6 +177,7 @@ const animateRounding = () => {
         :radius="radius"
         :roundingType="roundingType"
         :isPolygonComplete="isPolygonComplete"
+        :isAnimating="isAnimating"
         @add-point="addPoint"
         @update-point="updatePoint"
         @complete-polygon="completePolygon"

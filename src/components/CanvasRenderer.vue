@@ -14,6 +14,7 @@ const props = defineProps({
   radius: Number,
   roundingType: String,
   isPolygonComplete: Boolean,
+  isAnimating: Boolean,
 });
 
 const emit = defineEmits(["add-point", "update-point", "complete-polygon"]);
@@ -114,6 +115,7 @@ const draw = () => {
   ctx.value.clearRect(0, 0, width, height);
   drawGrid();
 
+  // Draw the original polygon
   if (props.points.length > 0) {
     ctx.value.beginPath();
     ctx.value.moveTo(props.points[0].x, props.points[0].y);
@@ -129,15 +131,18 @@ const draw = () => {
     ctx.value.shadowBlur = 0;
   }
 
-  if (props.isPolygonComplete && props.roundedPath.length > 0) {
+  // Draw the rounded path
+  if (props.isPolygonComplete && props.roundedPath && props.roundedPath.length > 0) {
     ctx.value.beginPath();
     for (let i = 0; i < props.roundedPath.length; i++) {
       const seg = props.roundedPath[i];
-      if (seg.type === "M") {
+      if (!seg) continue;
+
+      if (seg.type === "M" && seg.to) {
         ctx.value.moveTo(seg.to[0], seg.to[1]);
-      } else if (seg.type === "L") {
+      } else if (seg.type === "L" && seg.to) {
         ctx.value.lineTo(seg.to[0], seg.to[1]);
-      } else if (seg.type === "A") {
+      } else if (seg.type === "A" && seg.center && seg.radius !== undefined) {
         ctx.value.arc(
           seg.center[0],
           seg.center[1],
@@ -156,55 +161,39 @@ const draw = () => {
     ctx.value.fillStyle = "rgba(239,68,68,0.1)";
     ctx.value.fill();
 
+    // Draw debug points for rounded corners
     for (let i = 0; i < props.roundedPath.length; i++) {
       const seg = props.roundedPath[i];
-      if (seg.type === "A") {
-        ctx.value.beginPath();
-        ctx.value.arc(seg.center[0], seg.center[1], 4, 0, Math.PI * 2);
-        ctx.value.fillStyle = "#22c55e";
-        ctx.value.fill();
-        ctx.value.beginPath();
-        ctx.value.arc(seg.pStart ? seg.pStart[0] : seg.to[0], seg.pStart ? seg.pStart[1] : seg.to[1], 4, 0, Math.PI * 2);
-        ctx.value.fillStyle = "#f59e42";
-        ctx.value.fill();
-        ctx.value.beginPath();
-        ctx.value.moveTo(seg.center[0], seg.center[1]);
-        ctx.value.lineTo(seg.pStart ? seg.pStart[0] : seg.to[0], seg.pStart ? seg.pStart[1] : seg.to[1]);
-        ctx.value.strokeStyle = "#22c55e";
-        ctx.value.lineWidth = 1.5;
-        ctx.value.stroke();
-        // Рисуем биссектрису для отладки
-        ctx.value.beginPath();
-        ctx.value.moveTo(seg.pStart[0], seg.pStart[1]);
-        ctx.value.lineTo(seg.center[0], seg.center[1]);
-        ctx.value.strokeStyle = "#00cc44";
-        ctx.value.lineWidth = 2;
-        ctx.value.stroke();
-      }
+      if (!seg || seg.type !== "A" || !seg.center || !seg.pStart) continue;
+
+      ctx.value.beginPath();
+      ctx.value.arc(seg.center[0], seg.center[1], 4, 0, Math.PI * 2);
+      ctx.value.fillStyle = "#22c55e";
+      ctx.value.fill();
+
+      ctx.value.beginPath();
+      ctx.value.arc(seg.pStart[0], seg.pStart[1], 4, 0, Math.PI * 2);
+      ctx.value.fillStyle = "#f59e42";
+      ctx.value.fill();
+
+      ctx.value.beginPath();
+      ctx.value.moveTo(seg.center[0], seg.center[1]);
+      ctx.value.lineTo(seg.pStart[0], seg.pStart[1]);
+      ctx.value.strokeStyle = "#22c55e";
+      ctx.value.lineWidth = 1.5;
+      ctx.value.stroke();
+
+      // Рисуем биссектрису для отладки
+      ctx.value.beginPath();
+      ctx.value.moveTo(seg.pStart[0], seg.pStart[1]);
+      ctx.value.lineTo(seg.center[0], seg.center[1]);
+      ctx.value.strokeStyle = "#00cc44";
+      ctx.value.lineWidth = 2;
+      ctx.value.stroke();
     }
   }
 
-  props.points.forEach((point, index) => {
-    ctx.value.save();
-    ctx.value.beginPath();
-    ctx.value.arc(point.x, point.y, 11, 0, Math.PI * 2);
-
-    ctx.value.fillStyle = "#64748b";
-    ctx.value.strokeStyle = "#fff";
-    ctx.value.lineWidth = 1;
-    ctx.value.globalAlpha = 0.92;
-    ctx.value.fill();
-    ctx.value.stroke();
-
-    ctx.value.globalAlpha = 1;
-    ctx.value.fillStyle = "#ffffff";
-    ctx.value.font = "14px Arial";
-    ctx.value.textAlign = "center";
-    ctx.value.textBaseline = "middle";
-    ctx.value.fillText((index + 1).toString(), point.x, point.y);
-    ctx.value.restore();
-  });
-
+  // Draw preview line for new point
   if (isDrawing.value && currentPoint.value && !props.isPolygonComplete) {
     const last = props.points[props.points.length - 1];
     ctx.value.beginPath();
@@ -215,12 +204,56 @@ const draw = () => {
     ctx.value.stroke();
     ctx.value.setLineDash([]);
   }
+
+  // Draw points and their numbers last to ensure they're on top
+  props.points.forEach((point, index) => {
+    ctx.value.save();
+    
+    // Draw point circle with shadow
+    ctx.value.shadowColor = "rgba(0, 0, 0, 0.2)";
+    ctx.value.shadowBlur = 4;
+    ctx.value.shadowOffsetY = 2;
+    ctx.value.beginPath();
+    ctx.value.arc(point.x, point.y, 12, 0, Math.PI * 2);
+    ctx.value.fillStyle = "#3b82f6";
+    ctx.value.strokeStyle = "#ffffff";
+    ctx.value.lineWidth = 2;
+    ctx.value.fill();
+    ctx.value.stroke();
+    ctx.value.shadowBlur = 0;
+    ctx.value.shadowOffsetY = 0;
+
+    // Draw number with shadow
+    ctx.value.shadowColor = "rgba(0, 0, 0, 0.2)";
+    ctx.value.shadowBlur = 2;
+    ctx.value.shadowOffsetY = 1;
+    ctx.value.fillStyle = "#ffffff";
+    ctx.value.font = "bold 14px Arial";
+    ctx.value.textAlign = "center";
+    ctx.value.textBaseline = "middle";
+    ctx.value.fillText((index + 1).toString(), point.x, point.y);
+    
+    ctx.value.restore();
+  });
 };
 
 const handleClick = (e) => {
   if (isDragging.value || props.isPolygonComplete) return;
 
   const { x, y } = getMousePos(e);
+  
+  // Проверяем, можно ли замкнуть полигон
+  if (props.points.length >= 2) {
+    const firstPoint = props.points[0];
+    const distance = Math.hypot(x - firstPoint.x, y - firstPoint.y);
+    
+    // Если клик достаточно близко к первой точке, замыкаем полигон
+    if (distance <= 15) {
+      emit("complete-polygon");
+      return;
+    }
+  }
+
   emit("add-point", { x, y });
 };
 
@@ -297,11 +330,15 @@ onMounted(() => {
   initCanvas();
 });
 
-watch(
-  () => [props.points, props.roundedPath, props.isPolygonComplete],
-  () => draw(),
-  { deep: true }
-);
+watch(() => props.points, () => {
+  draw();
+}, { deep: true });
+
+watch(() => props.isAnimating, (newValue) => {
+  if (!newValue) {
+    draw();
+  }
+});
 
 onUnmounted(() => {
   window.removeEventListener("resize", initCanvas);
